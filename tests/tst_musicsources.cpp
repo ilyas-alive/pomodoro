@@ -14,6 +14,8 @@ class TestMusicSources : public QObject
 	private slots:
 		void	youtubeHosts_data();
 		void	youtubeHosts();
+		void	youtubePlaylistLinks_data();
+		void	youtubePlaylistLinks();
 		void	spotifyLinks_data();
 		void	spotifyLinks();
 		void	stationKinds_data();
@@ -42,6 +44,26 @@ void	TestMusicSources::youtubeHosts()
 	QFETCH(bool, handled);
 
 	QCOMPARE(YtDlp::handles(QUrl(url)), handled);
+}
+
+void	TestMusicSources::youtubePlaylistLinks_data()
+{
+	QTest::addColumn<QString>("text");
+	QTest::addColumn<bool>("playlistLink");
+
+	QTest::newRow("playlist page") << "https://youtube.com/playlist?list=PLMzfzZkOIjPk&si=dyxusuM64cAt1K6K" << true;
+	QTest::newRow("watch in playlist") << "https://www.youtube.com/watch?v=abc&list=PLMzfzZkOIjPk" << true;
+	QTest::newRow("video only") << "https://www.youtube.com/watch?v=abc" << false;
+	QTest::newRow("other host") << "https://example.com/playlist?list=PLMzfzZkOIjPk" << false;
+	QTest::newRow("words") << "lofi beats playlist" << false;
+}
+
+void	TestMusicSources::youtubePlaylistLinks()
+{
+	QFETCH(QString, text);
+	QFETCH(bool, playlistLink);
+
+	QCOMPARE(YtDlp::isPlaylistLink(text), playlistLink);
 }
 
 void	TestMusicSources::spotifyLinks_data()

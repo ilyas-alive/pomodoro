@@ -59,6 +59,7 @@ class YtDlp : public QObject
 
 		// True for the hosts yt-dlp is asked about: youtube.com, youtu.be, music.youtube.com.
 		static bool	handles(const QUrl &url);
+		static bool	isPlaylistLink(const QString &text);
 
 		// Asynchronous; answers with resolved() or resolveFailed(). A second call cancels
 		// the first.
