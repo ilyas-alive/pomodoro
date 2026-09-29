@@ -19,6 +19,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Determine Version
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
+          else
+            echo "VERSION=v1.5.0-dev" >> $GITHUB_ENV
+          fi
+
       - name: Install Qt ${{ env.QT_VERSION }}
         uses: jurplel/install-qt-action@v4
         with:
@@ -43,7 +52,7 @@ jobs:
       - name: Configure and build
         run: |
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
-            "-DPOMODORO_VERSION=${{ github.ref_name }}" -DCMAKE_INSTALL_PREFIX=/usr
+            "-DPOMODORO_VERSION=${{ env.VERSION }}" -DCMAKE_INSTALL_PREFIX=/usr
           cmake --build build --parallel
 
       - name: Stage AppDir
@@ -64,17 +73,19 @@ jobs:
         env:
           APPIMAGE_EXTRACT_AND_RUN: 1
         run: |
-          ARCH=x86_64 ./appimagetool AppDir "pomodoro-${{ github.ref_name }}-x86_64.AppImage"
+          ARCH=x86_64 ./appimagetool AppDir "pomodoro-${{ env.VERSION }}-x86_64.AppImage"
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: appimage
+          name: pomodoro-AppImage
           path: pomodoro-*.AppImage
           if-no-files-found: error
 
       - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          name: pomodoro ${{ github.ref_name }}
+          name: pomodoro ${{ env.VERSION }}
           generate_release_notes: true
           files: pomodoro-*.AppImage
