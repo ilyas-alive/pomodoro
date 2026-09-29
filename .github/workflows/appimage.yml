@@ -39,15 +39,11 @@ jobs:
       - name: Install Ninja
         uses: seanmiddleditch/gha-setup-ninja@v5
 
-      - name: Install build dependencies and appimagetool
+      - name: Install build dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            libgl1-mesa-dev libxkbcommon-dev libdbus-1-dev libxcb-cursor0
-
-          curl -sSL -o appimagetool \
-            https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
-          chmod +x appimagetool
+            libgl1-mesa-dev libxkbcommon-dev libdbus-1-dev libxcb-cursor0 imagemagick
 
       - name: Configure and build
         run: |
@@ -60,20 +56,23 @@ jobs:
           rm -rf AppDir
           DESTDIR="$PWD/AppDir" cmake --install build
 
-          printf '%s\n' \
-            '#!/bin/sh' \
-            'HERE="$(dirname "$(readlink -f "$0")")"' \
-            'exec "$HERE/usr/bin/pomodoro" "$@"' > AppDir/AppRun
-          chmod +x AppDir/AppRun
-
-          cp packaging/pomodoro.desktop AppDir/pomodoro.desktop
-          cp AppDir/usr/share/icons/hicolor/500x500/apps/pomodoro.png AppDir/pomodoro.png
-
       - name: Build AppImage
         env:
           APPIMAGE_EXTRACT_AND_RUN: 1
+          QML_SOURCES_PATHS: ${{ github.workspace }}/src/ui
+          OUTPUT: pomodoro-${{ env.VERSION }}-x86_64.AppImage
         run: |
-          ARCH=x86_64 ./appimagetool AppDir "pomodoro-${{ env.VERSION }}-x86_64.AppImage"
+          curl -sSL -o linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          curl -sSL -o linuxdeploy-plugin-qt https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
+          chmod +x linuxdeploy linuxdeploy-plugin-qt
+
+          convert assets/icons/pomodoroLogoTransport.png -resize 256x256 pomodoro.png
+
+          ./linuxdeploy --appdir AppDir \
+            --desktop-file packaging/pomodoro.desktop \
+            --icon-file pomodoro.png \
+            --plugin qt \
+            --output appimage
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
