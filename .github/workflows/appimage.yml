@@ -1,0 +1,80 @@
+name: AppImage
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  QT_VERSION: 6.6.3
+
+jobs:
+  appimage:
+    name: Build AppImage
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Qt ${{ env.QT_VERSION }}
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          arch: gcc_64
+          modules: qtmultimedia
+          cache: true
+
+      - name: Install Ninja
+        uses: seanmiddleditch/gha-setup-ninja@v5
+
+      - name: Install build dependencies and appimagetool
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgl1-mesa-dev libxkbcommon-dev libdbus-1-dev libxcb-cursor0
+
+          curl -sSL -o appimagetool \
+            https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool
+
+      - name: Configure and build
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            "-DPOMODORO_VERSION=${{ github.ref_name }}" -DCMAKE_INSTALL_PREFIX=/usr
+          cmake --build build --parallel
+
+      - name: Stage AppDir
+        run: |
+          rm -rf AppDir
+          DESTDIR="$PWD/AppDir" cmake --install build
+
+          printf '%s\n' \
+            '#!/bin/sh' \
+            'HERE="$(dirname "$(readlink -f "$0")")"' \
+            'exec "$HERE/usr/bin/pomodoro" "$@"' > AppDir/AppRun
+          chmod +x AppDir/AppRun
+
+          cp packaging/pomodoro.desktop AppDir/pomodoro.desktop
+          cp AppDir/usr/share/icons/hicolor/500x500/apps/pomodoro.png AppDir/pomodoro.png
+
+      - name: Build AppImage
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: 1
+        run: |
+          ARCH=x86_64 ./appimagetool AppDir "pomodoro-${{ github.ref_name }}-x86_64.AppImage"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: appimage
+          path: pomodoro-*.AppImage
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: pomodoro ${{ github.ref_name }}
+          generate_release_notes: true
+          files: pomodoro-*.AppImage
