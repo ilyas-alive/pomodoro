@@ -12,6 +12,7 @@
 #include <QStandardPaths>
 #include <QSysInfo>
 #include <QTimer>
+#include <QUrlQuery>
 
 #ifdef Q_OS_WIN
 #ifndef NOMINMAX
@@ -109,6 +110,12 @@ void	YtDlp::search(const QString &query, bool playlists)
 
 	if (trimmed.isEmpty())
 		return;
+
+	if (playlists && isPlaylistLink(trimmed))
+	{
+		openPlaylist(trimmed, QStringLiteral("Playlist"));
+		return;
+	}
 
 	// Videos through yt-dlp's own search; playlists through YouTube's results page with
 	// its "playlists only" filter, which yt-dlp reads like any other listing.
@@ -256,6 +263,16 @@ bool	YtDlp::handles(const QUrl &url)
 
 	return host == QLatin1String("youtube.com") || host == QLatin1String("youtu.be")
 		|| host == QLatin1String("music.youtube.com");
+}
+
+bool	YtDlp::isPlaylistLink(const QString &text)
+{
+	QUrl	url = QUrl::fromUserInput(text.trimmed());
+
+	if (!url.isValid() || !handles(url))
+		return false;
+
+	return QUrlQuery(url).hasQueryItem(QStringLiteral("list"));
 }
 
 void	YtDlp::resolve(const QUrl &url)
